@@ -37,76 +37,46 @@ dictionary, we stick to the following rules-of-thumb:
 
 ## Executables generated
 
-Firstly, whenever relevant we ONLY use latest EVM version.
+> All differential fuzzers use the latest EVM version.
 
-### Using LibFuzzer and differential-checking with EVMOne
-- `sol_proto_ossfuzz_evmone` (from `solProtoFuzzer2.cpp`). Generates random
-  Solidity via Protobuf schema `sol2Proto.proto` using `protoToSol2`, compiles
-  with 2 configurations — unoptimized vs optimized — both using the same
-  `viaIR` flag (chosen by the protobuf input). Deploys on evmone and compares
-  output, logs, and storage.
-- `sol_proto_ossfuzz_evmone_viair` (from `solProtoFuzzer2.cpp`, compiled with
-  `FUZZER_MODE_VIAIR`). Generates random Solidity via Protobuf schema
-  `sol2Proto.proto` using `protoToSol2`, compiles unoptimized with legacy
-  codegen (viaIR=false) vs optimized with IR codegen (viaIR=true). Compares
-  output, logs, and storage.
-- `yul_proto_ossfuzz_evmone` (from `yulProtoFuzzerEvmone.cpp`). Generates
-  random Yul via Protobuf, compiles twice (unoptimized and with the full Yul
-  optimizer), deploys both versions on evmone with protobuf-generated
-  calldata, and compares output data, logs, and storage.
-- `yul_proto_ossfuzz_evmone_ssacfg` (from `yulProtoFuzzerEvmone.cpp`,
-  compiled with `FUZZER_MODE_SSACFG`). Compares unoptimized legacy codegen
-  vs optimized SSA CFG codegen — tests the newer SSA-based code generation
-  backend against the legacy stack-based one.
-- `yul_proto_ossfuzz_evmone_single_pass` (from `yulProtoFuzzerEvmone.cpp`,
-  compiled with `FUZZER_MODE_SINGLE_PASS`). Tests individual Yul optimizer
-  passes in isolation. Run A applies only the hard-coded prerequisite passes
-  (Disambiguator + `hgfo`) with an empty optimizer sequence; Run B applies the
-  same prerequisites plus a single target optimizer pass. Both use legacy
-  codegen with `optimizeStackAllocation` off, so the only semantic difference
-  is the one target pass. The target pass is selected at runtime via the
-  `FUZZER_PASS` environment variable — a single character abbreviation (e.g.
-  `c` for CommonSubexpressionEliminator, `S` for UnusedStoreEliminator). Run
-  without `FUZZER_PASS` set to see all valid abbreviations. Usage:
-  ```bash
-  # Run multiple passes in parallel (one process per pass):
-  DIR=`pwd`
-  for pass in c S L M s r D; do
-    mkdir -p my_corpus_$pass
-    tmux new-window -t "0" -c "$DIR" -n "fuzz-$i"
-    tmux send-keys -t "$SESSION:$i" "$CMD" Enter
-    FUZZER_PASS=$pass ./build_ossfuzz/tools/ossfuzz/yul_proto_ossfuzz_evmone_single_pass \
-      my_corpus_$pass/ &
-  done
-  ```
+### Differential fuzzers (LibFuzzer + EVMOne)
 
-### Using LibFuzzer and executing with EVMOne, checking the known output
-- `yul_proto_ossfuzz_evmone_check_stack_alloc` (from
-  `yulProtoFuzzerEvmone.cpp`, compiled with `FUZZER_MODE_CHECK_STACK_ALLOC`).
-  Compares optimized Yul with `optimizeStackAllocation` off vs on (both legacy
-  codegen). Catches miscompilations introduced by the stack-reuse
-  code-generation pass.
-- `sol_proto_ossfuzz_nondiff` (from `solProtoFuzzer.cpp`). Generates random
-  Solidity via the Protobuf schema `solProto.proto`, producing code with
-  functions that return known constants. Compiles with minimal optimizer
-  settings, deploys on evmone, asserts `test()` does not revert and returns
-  0 (i.e. all constants are returned correctly). Not differential — single
-  configuration only.
+| Executable | Source / Mode | What it compares |
+|---|---|---|
+| `sol_proto_ossfuzz_evmone` | `solProtoFuzzer2.cpp` | Unopt vs opt (same `viaIR` flag, chosen by input) |
+| `sol_proto_ossfuzz_evmone_viair` | `solProtoFuzzer2.cpp`, `FUZZER_MODE_VIAIR` | Legacy unopt (viaIR=false) vs IR opt (viaIR=true) |
+| `yul_proto_ossfuzz_evmone` | `yulProtoFuzzerEvmone.cpp` | Unopt Yul vs fully-optimized Yul |
+| `yul_proto_ossfuzz_evmone_ssacfg` | `yulProtoFuzzerEvmone.cpp`, `FUZZER_MODE_SSACFG` | Unopt legacy codegen vs opt SSA CFG codegen |
+| `yul_proto_ossfuzz_evmone_single_pass` | `yulProtoFuzzerEvmone.cpp`, `FUZZER_MODE_SINGLE_PASS` | Prereq passes only vs prereq + one target pass (set via `FUZZER_PASS`) |
 
-### Using LibFuzzer, Checking for Internal Crash
-- `strictasm_opt_ossfuzz` (from `strictasm_opt_ossfuzz.cpp`). Interprets
-  random characters as strict assembly code, runs the optimizer, and hopes
-  it crashes.
-- `strictasm_assembly_ossfuzz` (from `strictasm_assembly_ossfuzz.cpp`).
-  Interprets random characters as strict assembly code, assembles it, and
-  hopes it crashes.
-- `const_opt_ossfuzz` (from `const_opt_ossfuzz.cpp`). Interprets random
-  characters as some kind of constants, runs the constant optimizer, and
-  hopes it crashes.
-- `solc_ossfuzz` (from `solc_ossfuzz.cpp`). Interprets random characters as
-  Solidity code, compiles and hopes it crashes.
-- `solc_mutator_ossfuzz` (from `solc_ossfuzz.cpp`). Same as previous, but with
-  a custom mutator included.
+For `yul_proto_ossfuzz_evmone_single_pass`, run multiple passes in parallel:
+```bash
+DIR=`pwd`
+for pass in c S L M s r D; do
+  mkdir -p my_corpus_$pass
+  tmux new-window -t "0" -c "$DIR" -n "fuzz-$i"
+  tmux send-keys -t "$SESSION:$i" "$CMD" Enter
+  FUZZER_PASS=$pass ./build_ossfuzz/tools/ossfuzz/yul_proto_ossfuzz_evmone_single_pass \
+    my_corpus_$pass/ &
+done
+```
+
+### Non-differential fuzzers (LibFuzzer + EVMOne)
+
+| Executable | Source / Mode | What it checks |
+|---|---|---|
+| `yul_proto_ossfuzz_evmone_check_stack_alloc` | `yulProtoFuzzerEvmone.cpp`, `FUZZER_MODE_CHECK_STACK_ALLOC` | Opt with stack alloc off vs on (legacy codegen) |
+| `sol_proto_ossfuzz_nondiff` | `solProtoFuzzer.cpp` | Single config: `test()` must not revert and must return 0 |
+
+### Crash-only fuzzers (LibFuzzer, no EVMOne)
+
+| Executable | Source | What it feeds random bytes to |
+|---|---|---|
+| `strictasm_opt_ossfuzz` | `strictasm_opt_ossfuzz.cpp` | Yul optimizer |
+| `strictasm_assembly_ossfuzz` | `strictasm_assembly_ossfuzz.cpp` | Yul assembler |
+| `const_opt_ossfuzz` | `const_opt_ossfuzz.cpp` | Constant optimizer |
+| `solc_ossfuzz` | `solc_ossfuzz.cpp` | Solidity compiler |
+| `solc_mutator_ossfuzz` | `solc_ossfuzz.cpp` + custom mutator | Solidity compiler |
 
 ## Debugging solidity issues with `sol_debug_runner`
 
