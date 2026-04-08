@@ -76,6 +76,8 @@ differential comparisons pass or fail.
     --optimizer-cleanup-sequence "<cleanup from tout.seq>"
    ```
 
+   If the sequences are not given, the default sequences are used
+
 3. Check the terminal output. The tool prints per-configuration details
    (bytecode, status, logs, storage) followed by a differential comparison
    section:
