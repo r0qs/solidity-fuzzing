@@ -11,3 +11,5 @@ compile_commands.json
 sol_debug_out*/
 yul_debug_out*/
 /corpuses
+/tmp
+/tmp.tar.xz
