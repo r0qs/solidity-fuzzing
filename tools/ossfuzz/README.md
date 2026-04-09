@@ -231,10 +231,23 @@ coverage.
 First, dump Solidity source from fuzzer corpus entries:
 
 ```bash
+rm -rf tmp
 mkdir -p tmp
-rm tmp/*.sol
-find my_corpus_sol_proto_ossfuzz_evmone/ -maxdepth 1 -type f -print0 \
-  | shuf -z -n 200 \
+find ../corpuses/my_corpus_yul_proto_ossfuzz_evmone/ -maxdepth 1 -type f -print0 \
+  | shuf -z -n 1000 \
+  | while IFS= read -r -d '' file; do
+      PROTO_FUZZER_DUMP_PATH="tmp/$(basename "$file").yul" \
+        ./build_ossfuzz/tools/ossfuzz/yul_proto_ossfuzz_evmone "$file"
+    done
+```
+
+or
+
+```bash
+rm -rf tmp
+mkdir -p tmp
+find ../corpuses/my_corpus_sol_proto_ossfuzz_evmone/ -maxdepth 1 -type f -print0 \
+  | shuf -z -n 1000 \
   | while IFS= read -r -d '' file; do
       PROTO_FUZZER_DUMP_PATH="tmp/$(basename "$file").sol" \
         ./build_ossfuzz/tools/ossfuzz/sol_proto_ossfuzz_evmone "$file"
