@@ -67,6 +67,8 @@ The most important are the libfuzzer-based protobuf targets to be ran standalone
 ./build_ossfuzz/tools/ossfuzz/sol_proto_ossfuzz_evmone corpus_dir
 ```
 
+Corpuses are currently stored here: https://github.com/msooseth/solidity-fuzzing-corpus
+
 ## Running Debug Systems
 
 ```bash
